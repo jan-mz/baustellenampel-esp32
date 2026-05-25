@@ -36,6 +36,7 @@ Der Aufbau ist bewusst einfach gehalten (ESP32, LEDs / Ausgänge, Taster für Da
 Wichtige Dateien im Repo
 ------------------------
 - Konfiguration Master: [BaustellenAmpel-Master.yaml](BaustellenAmpel-Master.yaml)
+Hier kann man auch alle Timer einstellen (Grünphse, Räumphase etc)
 - Konfiguration Slave: [BaustellenAmpel-Slave.yaml](BaustellenAmpel-Slave.yaml)
 
 
