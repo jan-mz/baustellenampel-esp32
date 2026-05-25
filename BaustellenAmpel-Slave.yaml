@@ -1,0 +1,112 @@
+substitutions:
+  # ROLLE: 1 = Master | 2 = Master-Slave (folgt Master) | 3 = Slave (Gegenseite)
+  #
+  # esphome run .\BaustellenAmpel-Slave.yaml
+  #
+  ampel_rolle: "3" 
+  device_name: "baustellenampel-slave"
+
+esphome:
+  name: ${device_name}
+  on_boot:
+    priority: -10
+    then:
+      - logger.log: "On Boot: Rolle = ${ampel_rolle}"
+      - delay: 2s
+      - espnow.set_channel: 1
+      - delay: 1000ms
+      - logger.log: "Starte Testlauf...(1/4)"
+      - script.execute: led_testlauf
+      - delay: 1500ms
+      - logger.log: "Starte Testlauf...(2/4)"
+      - script.execute: led_testlauf
+      - delay: 1500ms
+      - logger.log: "Starte Testlauf...(3/4)"
+      - script.execute: led_testlauf
+      - delay: 1500ms
+      - logger.log: "Starte Testlauf...(4/4)"
+      - script.execute: led_testlauf
+      - delay: 1500ms
+      - logger.log: "Testlauf beendet."
+      - script.execute: 
+          id: setze_licht
+          phase: 0
+
+logger:
+  level: DEBUG
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+espnow:
+  channel: 1
+  auto_add_peer: true
+  on_broadcast:
+    then:
+      - logger.log: "espnow received data..."
+      - lambda: |-
+                // Da data ein const uint8_t* ist, greifen wir direkt auf den Index zu
+                int ziel_gruppe = data[0]; 
+                int phase = data[1];       
+                
+                int meine_rolle = atoi("${ampel_rolle}");
+                if (meine_rolle == 2 && ziel_gruppe == 1) {
+                    id(setze_licht).execute(phase);
+                } else if (meine_rolle == 3 && ziel_gruppe == 2) {
+                    id(setze_licht).execute(phase);
+                } else if (meine_rolle != 1) {
+                    id(setze_licht).execute(0); 
+                }
+
+output:
+  - platform: ledc
+    pin: GPIO 23
+    id: led_ampel_lokal_rot
+  - platform: ledc
+    pin: GPIO 22
+    id: led_ampel_lokal_gelb
+  - platform: ledc
+    pin: GPIO 21
+    id: led_ampel_lokal_gruen
+
+
+script:
+  - id: licht_aus
+    then:
+      - output.turn_off: led_ampel_lokal_rot
+      - output.turn_off: led_ampel_lokal_gelb
+      - output.turn_off: led_ampel_lokal_gruen
+
+  - id: setze_licht
+    parameters:
+      phase: int
+    then:
+      - script.execute: licht_aus
+      - lambda: |-
+          if (phase == 0) { id(led_ampel_lokal_rot).set_level(1.0); }      
+          else if (phase == 1) { id(led_ampel_lokal_rot).set_level(1.0); id(led_ampel_lokal_gelb).set_level(1.0); } 
+          else if (phase == 2) { id(led_ampel_lokal_gruen).set_level(1.0); } 
+          else if (phase == 3) { id(led_ampel_lokal_gelb).set_level(1.0); }
+
+  - id: led_testlauf
+    then:
+      - output.turn_off: led_ampel_lokal_rot
+      - output.turn_off: led_ampel_lokal_gelb
+      - output.turn_off: led_ampel_lokal_gruen
+
+      - output.turn_on: led_ampel_lokal_rot
+      - delay: 300ms
+
+      - output.turn_off: led_ampel_lokal_rot
+      - output.turn_on: led_ampel_lokal_gelb
+      - delay: 300ms
+
+      - output.turn_off: led_ampel_lokal_gelb
+      - output.turn_on: led_ampel_lokal_gruen
+      - delay: 300ms
+
+      - output.turn_off: led_ampel_lokal_rot
+      - output.turn_off: led_ampel_lokal_gelb
+      - output.turn_off: led_ampel_lokal_gruen
